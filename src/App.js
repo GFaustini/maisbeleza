@@ -142,7 +142,7 @@ function App() {
             <br />
             <input type='text' className='form-control' name='cidade' onChange={handleChange} />
 
-            <label>Estado: </label>
+            {/* <label>Estado: </label>
             <br />
             <select className="form-control" name="estado" onChange={handleChange}>
               <option value="">Selecione um estado</option>
@@ -150,7 +150,7 @@ function App() {
               <option value="AL">Alagoas</option>
               <option value="AP">Amapá</option>
 
-            </select>
+            </select>*/}
 
 
             {/*<label>Perfil: </label>
