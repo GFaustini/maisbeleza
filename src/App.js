@@ -11,7 +11,16 @@ function App() {
   const baseUrl = "https://localhost:7075/api/Meis";
 
   const [data, setData] = useState([]);
+  const [updateData, setUpdateData] = useState(true);
   const [modalIncluir, setModalIncluir] = useState(false);
+  const [modalEditar, setModalEditar] = useState(false);
+  const [modalExcluir, setModalExcluir] = useState(false);
+  const [modalLogin, setModalLogin] = useState(false);
+
+  const [loginData, setLoginData] = useState({
+    id: '',
+    password: '',
+  });
 
   const [meiSelecionado, setMeiSelecionado] = useState(
     {
@@ -32,19 +41,71 @@ function App() {
 
   )
 
+  const selecionarMei = (mei, opcao) => {
+    setMeiSelecionado(mei);
+    (opcao === 'editar') ?
+      abrirFecharModalEditar() : abrirFecharModalExcluir();
+  }
+
   const handleChange = (e) => {
     const { name, value } = e.target;
     setMeiSelecionado({
       ...meiSelecionado,
-      [name]: value
+      [name]: value,
     });
   };
 
+  const handleLoginChange = (e) => {
+    const { name, value } = e.target;
+    setLoginData({
+      ...loginData,
+      [name]: value,
+    });
+  };
+
+  const fazerLogin = () => {
+
+    const loginEndpoint = "https://localhost:7075/api/Meis/authenticate";
+
+    const credentials = {
+      id: loginData.id,
+      password: loginData.password,
+    };
+
+    axios.post(loginEndpoint, credentials)
+      .then(response => {
+
+        const authToken = response.data.jwt;
+        if (authToken) {
+
+          setToken(authToken);
+
+          console.log("Login bem-sucedido. Token de autenticação:", authToken);
+        } else {
+          console.error("Token de autenticação ausente na resposta do servidor.");
+        }
+      })
+      .catch(error => {
+        console.error("Erro ao fazer login:", error);
+      });
+  };
+
+  const [, setToken] = useState(null);
 
   const abrirFecharModalIncluir = () => {
     setModalIncluir(!modalIncluir);
   }
 
+  const abrirFecharModalEditar = () => {
+    setModalEditar(!modalEditar);
+  }
+
+  const abrirFecharModalExcluir = () => {
+    setModalExcluir(!modalExcluir);
+  }
+  const abrirFecharModalLogin = () => {
+    setModalLogin(!modalLogin);
+  };
   const pedidoGet = async () => {
     await axios.get(baseUrl)
       .then(response => {
@@ -59,7 +120,46 @@ function App() {
     await axios.post(baseUrl, meiSelecionado)
       .then(response => {
         setData(data.concat(response.data));
+        setUpdateData(true);
         abrirFecharModalIncluir();
+      }).catch(error => {
+        console.log(error);
+      })
+  }
+
+  const pedidoPut = async () => {
+    meiSelecionado.idade = parseInt(meiSelecionado.idade);
+    await axios.put(baseUrl + '/' + meiSelecionado.id, meiSelecionado)
+      .then(response => {
+        var resposta = response.data;
+        var dadosAuxiliar = data;
+        dadosAuxiliar.map(mei => {
+          if (mei.id === meiSelecionado.id) {
+            mei.nomeMei = resposta.nomeMei;
+            mei.email = resposta.email;
+            mei.telefone = resposta.telefone;
+            mei.rua = resposta.rua;
+            mei.numero = resposta.numero;
+            mei.bairro = resposta.bairro;
+            mei.cidade = resposta.cidade;
+            mei.password = resposta.password;
+            mei.horarioFuncionamento = resposta.horarioFuncionamento;
+          }
+          return null;
+        });
+        setUpdateData(true);
+        abrirFecharModalEditar();
+      }).catch(error => {
+        console.log(error);
+      })
+  }
+
+  const pedidoDelete = async () => {
+    await axios.delete(baseUrl + '/' + meiSelecionado.id)
+      .then(response => {
+        setData(data.filter(mei => mei.id !== response.data));
+        setUpdateData(true);
+        abrirFecharModalExcluir();
       }).catch(error => {
         console.log(error);
       })
@@ -72,8 +172,12 @@ function App() {
 
 
   useEffect(() => {
-    pedidoGet();
-  })
+    if (updateData) {
+      pedidoGet();
+      setUpdateData(false);
+    }
+  }, [updateData])
+
 
   return (
     <div className="App">
@@ -82,6 +186,7 @@ function App() {
       <header>
         <img src={logoPerfil} alt='cadastro' />
         <button className="btn btn-success" onClick={() => abrirFecharModalIncluir()}>Incluir Mei</button>
+        <button className="btn btn-primary" onClick={() => abrirFecharModalLogin()}>Login</button>
       </header>
       <table className='table table-bordered'>
         <thead>
@@ -90,6 +195,11 @@ function App() {
             <th>Nome</th>
             <th>Email</th>
             <th>Telefone</th>
+            <th>Rua</th>
+            <th>Numero</th>
+            <th>Bairro</th>
+            <th>Cidade</th>
+            <th>Horário de Funcionamento</th>
             <th>Operação</th>
           </tr>
         </thead>
@@ -100,9 +210,14 @@ function App() {
               <td>{Mei.nomeMei}</td>
               <td>{Mei.email}</td>
               <td>{Mei.telefone}</td>
+              <td>{Mei.rua}</td>
+              <td>{Mei.numero}</td>
+              <td>{Mei.bairro}</td>
+              <td>{Mei.cidade}</td>
+              <td>{Mei.horarioFuncionamento}</td>
               <td>
-                <button className='btn btn-primary'>Editar</button> {"  "}
-                <button className='btn btn-danger'>Excluir</button>
+                <button className='btn btn-primary' onClick={() => selecionarMei(Mei, 'editar')}>Editar</button> {"  "}
+                <button className='btn btn-danger' onClick={() => selecionarMei(Mei, 'excluir')}>Excluir</button>
               </td>
             </tr>
           ))}
@@ -110,7 +225,7 @@ function App() {
       </table>
 
       <Modal isOpen={modalIncluir}>
-        <ModalHeader>Incluir MEI</ModalHeader>
+        <ModalHeader>Incluir Mei</ModalHeader>
         <ModalBody>
           <div className='form-group'>
 
@@ -171,6 +286,106 @@ function App() {
         <ModalFooter>
           <button className='btn btn-primary' onClick={() => pedidoPost()}>Incluir</button> {"  "}
           <button className='btn btn-danger' onClick={() => abrirFecharModalIncluir()}>Cancelar</button>
+        </ModalFooter>
+      </Modal>
+
+
+      <Modal isOpen={modalEditar}>
+        <ModalHeader>Editar Mei</ModalHeader>
+        <ModalBody>
+          <div className='form-group'>
+
+            <label>Nome: </label>
+            <br />
+            <input type='text' className='form-control' name='nomeMei' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.nomeMei} />
+
+            <label>Email: </label>
+            <br />
+            <input type='text' className='form-control' name='email' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.email} />
+
+            <label>Telefone: </label>
+            <br />
+            <input type='text' className='form-control' name='telefone' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.telefone} />
+
+            <label>Rua: </label>
+            <br />
+            <input type='text' className='form-control' name='rua' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.rua} />
+
+            <label>Numero: </label>
+            <br />
+            <input type='text' className='form-control' name='numero' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.numero} />
+
+            <label>Bairro: </label>
+            <br />
+            <input type='text' className='form-control' name='bairro' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.bairro} />
+
+            <label>Cidade: </label>
+            <br />
+            <input type='text' className='form-control' name='cidade' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.cidade} />
+
+            <label>Senha: </label>
+            <br />
+            <input type='text' className='form-control' name='password' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.password} />
+
+            <label>Horario de Funcionamento: </label>
+            <br />
+            <input type='text' className='form-control' name='horarioFuncionamento' onChange={handleChange}
+              value={meiSelecionado && meiSelecionado.horarioFuncionamento} />
+
+            <br />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button className='btn btn-primary' onClick={() => pedidoPut()}>Editar</button> {"  "}
+          <button className='btn btn-danger' onClick={() => abrirFecharModalEditar()}>Cancelar</button>
+        </ModalFooter>
+      </Modal>
+
+      <Modal isOpen={modalExcluir}>
+        <ModalBody>
+          Confirma a exclusão{meiSelecionado && meiSelecionado.nome} ?
+        </ModalBody>
+        <ModalFooter>
+          <button className='btn btn-danger' onClick={() => pedidoDelete()}>Sim</button> {"  "}
+          <button className='btn btn-secondary' onClick={() => abrirFecharModalExcluir()}>Não</button>
+        </ModalFooter>
+      </Modal>
+      <Modal isOpen={modalLogin}>
+        <ModalHeader>Login</ModalHeader>
+        <ModalBody>
+          <div className='form-group'>
+            <label>Id: </label>
+            <br />
+            <input
+              type='text'
+              className='form-control'
+              name='id'
+              value={loginData.id}
+              onChange={handleLoginChange}
+            />
+
+            <label>Senha: </label>
+            <br />
+            <input
+              type='password'
+              className='form-control'
+              name='password'
+              value={loginData.password}
+              onChange={handleLoginChange}
+            />
+          </div>
+        </ModalBody>
+        <ModalFooter>
+          <button className='btn btn-primary' onClick={() => fazerLogin()}>Login</button>
+          <button className='btn btn-danger' onClick={() => abrirFecharModalLogin()}>Cancelar</button>
         </ModalFooter>
       </Modal>
     </div>
